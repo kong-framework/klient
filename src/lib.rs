@@ -5,6 +5,7 @@
 
 pub use error::KlientError;
 use kong_kontrollers::accounts::inputs::AccountCreationInput;
+use kong_kontrollers::blog::inputs::CreateBlogInput;
 use kong_kontrollers::login::inputs::AccountLoginInput;
 use reqwest::{
     blocking::{multipart, Client},
@@ -23,6 +24,9 @@ pub struct Klient {
     #[cfg(feature = "login")]
     /// Login route
     pub login_endpoint: String,
+    #[cfg(feature = "blog")]
+    /// Blog route
+    pub blog_endpoint: String,
 }
 
 impl Klient {
@@ -68,6 +72,23 @@ impl Klient {
             _ => Err(KlientError::InternalServerError),
         }
     }
+
+    /// Post a new blog post
+    #[cfg(feature = "blog")]
+    pub fn blog_post(&self, blog_input: multipart::Form) -> Result<(), KlientError> {
+        let res = self
+            .client
+            .post(&self.blog_endpoint)
+            .multipart(blog_input)
+            .send()
+            .map_err(|_| KlientError::APIConnection)?;
+
+        match res.status() {
+            StatusCode::CREATED => Ok(()),
+            StatusCode::BAD_REQUEST => Err(KlientError::InvalidInput),
+            _ => Err(KlientError::InternalServerError),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -77,12 +98,14 @@ mod tests {
     #[test]
     #[cfg(feature = "accounts")]
     #[cfg(feature = "login")]
-    fn test_create_account() {
+    #[cfg(feature = "blog")]
+    fn test_klient() {
         let client = Klient::new_client().unwrap();
         let klient = Klient {
             client,
             accounts_endpoint: "http://localhost:3000/accounts".to_string(),
             login_endpoint: "http://localhost:3000/login".to_string(),
+            blog_endpoint: "http://localhost:3000/blog".to_string(),
         };
 
         // create admin new account
@@ -106,7 +129,20 @@ mod tests {
         if let Ok(_res) = klient.login(login_info) {
             assert!(true);
         } else {
-            panic!("Error creating account");
+            panic!("Error with login");
+        }
+
+        let form = multipart::Form::new()
+            .text("title", "Test title")
+            .text("subtitle", "Test subtitle")
+            .file("cover", "./test.png")
+            .unwrap()
+            .text("content", "Test Content");
+
+        if let Ok(_res) = klient.blog_post(form) {
+            assert!(true);
+        } else {
+            panic!("Error posting blog");
         }
     }
 }
