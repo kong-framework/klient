@@ -8,6 +8,8 @@ pub use error::KlientError;
 use kong_kontrollers::accounts::inputs::AccountCreationInput;
 #[cfg(feature = "blog")]
 use kong_kontrollers::blog::inputs::CreateBlogInput;
+#[cfg(feature = "contact")]
+use kong_kontrollers::contact::ContactMessageInput;
 #[cfg(feature = "login")]
 use kong_kontrollers::login::inputs::AccountLoginInput;
 #[cfg(feature = "newsletter")]
@@ -36,6 +38,8 @@ pub struct Klient {
     /// Newsletter route
     #[cfg(feature = "newsletter")]
     pub newsletter_endpoint: String,
+    #[cfg(feature = "contact")]
+    pub contact_endpoint: String,
 }
 
 impl Klient {
@@ -118,6 +122,25 @@ impl Klient {
             _ => Err(KlientError::InternalServerError),
         }
     }
+
+    /// Send contact us message
+    #[cfg(feature = "contact")]
+    pub fn contact_message(&self, contact_input: ContactMessageInput) -> Result<(), KlientError> {
+        use kong_kontrollers::contact::ContactMessageInput;
+
+        let res = self
+            .client
+            .post(&self.contact_endpoint)
+            .json(&contact_input)
+            .send()
+            .map_err(|_| KlientError::APIConnection)?;
+
+        match res.status() {
+            StatusCode::CREATED => Ok(()),
+            StatusCode::BAD_REQUEST => Err(KlientError::InvalidInput),
+            _ => Err(KlientError::InternalServerError),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -129,6 +152,7 @@ mod tests {
     #[cfg(feature = "login")]
     #[cfg(feature = "blog")]
     #[cfg(feature = "newsletter")]
+    #[cfg(feature = "contact")]
     fn test_klient() {
         let client = Klient::new_client().unwrap();
         let klient = Klient {
@@ -137,6 +161,7 @@ mod tests {
             login_endpoint: "http://localhost:3000/login".to_string(),
             blog_endpoint: "http://localhost:3000/blog".to_string(),
             newsletter_endpoint: "http://localhost:3000/newsletter".to_string(),
+            contact_endpoint: "http://localhost:3000/contact".to_string(),
         };
 
         // create admin new account
@@ -181,6 +206,18 @@ mod tests {
         };
 
         if let Ok(_res) = klient.subscribe_newsletter(newsletter_input) {
+            assert!(true);
+        } else {
+            panic!("Error posting blog");
+        }
+
+        let contact_input = ContactMessageInput {
+            name: "John".to_string(),
+            email: Some("test@example.com".to_string()),
+            message: "Hi there".to_string(),
+        };
+
+        if let Ok(_res) = klient.contact_message(contact_input) {
             assert!(true);
         } else {
             panic!("Error posting blog");
