@@ -5,6 +5,7 @@
 
 pub use error::KlientError;
 use kong_kontrollers::accounts::inputs::AccountCreationInput;
+use kong_kontrollers::login::inputs::AccountLoginInput;
 use reqwest::{
     blocking::{multipart, Client},
     StatusCode,
@@ -19,6 +20,9 @@ pub struct Klient {
     #[cfg(feature = "accounts")]
     /// Accounts route
     pub accounts_endpoint: String,
+    #[cfg(feature = "login")]
+    /// Login route
+    pub login_endpoint: String,
 }
 
 impl Klient {
@@ -47,6 +51,23 @@ impl Klient {
             _ => Err(KlientError::InternalServerError),
         }
     }
+
+    /// Account login
+    #[cfg(feature = "login")]
+    pub fn login(&self, login_input: AccountLoginInput) -> Result<(), KlientError> {
+        let res = self
+            .client
+            .post(&self.login_endpoint)
+            .json(&login_input)
+            .send()
+            .map_err(|_| KlientError::APIConnection)?;
+
+        match res.status() {
+            StatusCode::OK => Ok(()),
+            StatusCode::BAD_REQUEST => Err(KlientError::InvalidInput),
+            _ => Err(KlientError::InternalServerError),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -55,11 +76,13 @@ mod tests {
 
     #[test]
     #[cfg(feature = "accounts")]
+    #[cfg(feature = "login")]
     fn test_create_account() {
         let client = Klient::new_client().unwrap();
         let klient = Klient {
             client,
             accounts_endpoint: "http://localhost:3000/accounts".to_string(),
+            login_endpoint: "http://localhost:3000/login".to_string(),
         };
 
         // create admin new account
@@ -69,7 +92,18 @@ mod tests {
             password: "1234567890".to_string(),
         };
 
-        if let Ok(res) = klient.create_account(account) {
+        if let Ok(_res) = klient.create_account(account) {
+            assert!(true);
+        } else {
+            panic!("Error creating account");
+        }
+
+        let login_info = AccountLoginInput {
+            username: "admin".to_string(),
+            password: "1234567890".to_string(),
+        };
+
+        if let Ok(_res) = klient.login(login_info) {
             assert!(true);
         } else {
             panic!("Error creating account");
