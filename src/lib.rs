@@ -4,9 +4,15 @@
 #![warn(missing_docs, unreachable_pub, future_incompatible, rust_2018_idioms)]
 
 pub use error::KlientError;
+#[cfg(feature = "accounts")]
 use kong_kontrollers::accounts::inputs::AccountCreationInput;
+#[cfg(feature = "blog")]
 use kong_kontrollers::blog::inputs::CreateBlogInput;
+#[cfg(feature = "login")]
 use kong_kontrollers::login::inputs::AccountLoginInput;
+#[cfg(feature = "newsletter")]
+use kong_kontrollers::newsletter::SubscribeNewsletterInput;
+
 use reqwest::{
     blocking::{multipart, Client},
     StatusCode,
@@ -27,6 +33,9 @@ pub struct Klient {
     #[cfg(feature = "blog")]
     /// Blog route
     pub blog_endpoint: String,
+    /// Newsletter route
+    #[cfg(feature = "newsletter")]
+    pub newsletter_endpoint: String,
 }
 
 impl Klient {
@@ -89,6 +98,26 @@ impl Klient {
             _ => Err(KlientError::InternalServerError),
         }
     }
+
+    /// Subscribe to newsletter
+    #[cfg(feature = "newsletter")]
+    pub fn subscribe_newsletter(
+        &self,
+        newsletter_input: SubscribeNewsletterInput,
+    ) -> Result<(), KlientError> {
+        let res = self
+            .client
+            .post(&self.newsletter_endpoint)
+            .json(&newsletter_input)
+            .send()
+            .map_err(|_| KlientError::APIConnection)?;
+
+        match res.status() {
+            StatusCode::CREATED => Ok(()),
+            StatusCode::BAD_REQUEST => Err(KlientError::InvalidInput),
+            _ => Err(KlientError::InternalServerError),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -99,6 +128,7 @@ mod tests {
     #[cfg(feature = "accounts")]
     #[cfg(feature = "login")]
     #[cfg(feature = "blog")]
+    #[cfg(feature = "newsletter")]
     fn test_klient() {
         let client = Klient::new_client().unwrap();
         let klient = Klient {
@@ -106,6 +136,7 @@ mod tests {
             accounts_endpoint: "http://localhost:3000/accounts".to_string(),
             login_endpoint: "http://localhost:3000/login".to_string(),
             blog_endpoint: "http://localhost:3000/blog".to_string(),
+            newsletter_endpoint: "http://localhost:3000/newsletter".to_string(),
         };
 
         // create admin new account
@@ -140,6 +171,16 @@ mod tests {
             .text("content", "Test Content");
 
         if let Ok(_res) = klient.blog_post(form) {
+            assert!(true);
+        } else {
+            panic!("Error posting blog");
+        }
+
+        let newsletter_input = SubscribeNewsletterInput {
+            email: "admin@example.com".to_string(),
+        };
+
+        if let Ok(_res) = klient.subscribe_newsletter(newsletter_input) {
             assert!(true);
         } else {
             panic!("Error posting blog");
