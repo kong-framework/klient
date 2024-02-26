@@ -1,0 +1,17 @@
+[package]
+name = "kong_klient"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+accounts = []
+login = []
+blog = []
+newsletter = []
+contact = []
+
+[dependencies]
+kong_kontrollers = { path = "../../kontrollers", features = ["blog", "newsletter", "contact"]}
+reqwest = { version = "*", features = ["blocking", "json", "multipart", "cookies"] }
+serde = { version = "1.0.144", features = ["derive"] } # A generic serialization/deserialization framework
+serde_json = {version = "1.0.73"}
